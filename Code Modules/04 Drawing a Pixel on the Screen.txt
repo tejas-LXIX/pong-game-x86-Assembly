@@ -1,0 +1,36 @@
+//ah and al are 8 bit parts ot the 16 bit register ax.
+
+
+STACK SEGMENT PARA STACK ;start by creating a stack segment
+	DB 64 DUP (' ') ;fill the stack with 64 empty spaces. 
+STACK ENDS
+
+DATA SEGMENT PARA 'DATA' ;segment where we will save our variables
+
+DATA ENDS
+
+CODE SEGMENT PARA 'CODE'
+	
+	MAIN PROC FAR  ;creating our main procedure(main function jaise)
+	
+		MOV AH,00h ;set the configuration to video mode
+		MOV AL,13h  ;choose the video mode. set it to 13h(is a part of provides 256 color graphics)
+		INT 10h ; execute the configuration
+		
+		MOV AH,0Bh ;set the configuration
+		MOV BH,00h ;to the background color
+		MOV BL,00h ; choose black as background. 00h is the colour code for black
+		INT 10h ; execute the configuration
+		
+		MOV AH,0Ch ; set the configuration to writing a pixel
+		MOV AL,0Fh ; chooose white colour for the pixel
+		MOV BH,00h ; set the page number to zero
+		MOV CX,0Ah ;set the column (X position) of the pixel to 10
+		MOV DX,0Ah; set y position to 10.
+		INT 10h ;execute the configuration
+		
+		RET
+	MAIN ENDP
+
+CODE ENDS
+END

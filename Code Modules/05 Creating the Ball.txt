@@ -1,0 +1,47 @@
+STACK SEGMENT PARA STACK ;start by creating a stack segment
+	DB 64 DUP (' ') ;fill the stack with 64 empty spaces. 
+STACK ENDS
+
+DATA SEGMENT PARA 'DATA' ;segment where we will save our variables
+	BALL_X DW 0Ah  ;declaring the ball variables here (x and y posn's of the ball)
+	BALL_Y DW 0Ah  ; DW	stands for define word. can store 16 bits of info. we use it because down there,we are using 16 bits registers.
+	; DB can only store 8 bits of data.
+DATA ENDS
+
+CODE SEGMENT PARA 'CODE'
+	
+	MAIN PROC FAR  ;creating our main procedure(main function jaise)
+	
+	ASSUME CS:CODE,DS:DATA,SS:STACK ; to clearly define the segments of our program.
+	;assume that our code segment is called code,data segment is called data,stack segment is called stack.
+	;cs,ds,ss are registers. This is useful for telling the assembler where to get the variables from(where they have been defined),rather than using random garbage values.
+	
+	PUSH DS ;push to the stack the DS segment.
+	SUB AX,AX  ;clean the AX Register by subtracting it with itself
+	PUSH AX ;push ax to the stack
+	MOV AX,DATA ;save on the AX Register the contents of the DATA segment
+	MOV DS,AX   ;save on the data segment,the contents of AX.
+	POP AX   ;release the top item from the stack to the register
+	POP AX   
+	
+		MOV AH,00h ;set the configuration to video mode
+		MOV AL,13h  ;choose the video mode. set it to 13h(is a part of provides 256 color graphics)
+		INT 10h ; execute the configuration
+		
+		MOV AH,0Bh ;set the configuration
+		MOV BH,00h ;to the background color
+		MOV BL,00h ; choose black as background. 00h is the colour code for black
+		INT 10h ; execute the configuration
+		
+		MOV AH,0Ch ; set the configuration to writing a pixel
+		MOV AL,0Fh ; chooose white colour for the pixel
+		MOV BH,00h ; set the page number to zero
+		MOV CX,BALL_X ;set the column (X position) of the pixel to 10
+		MOV DX,BALL_Y ;set y position to 10.
+		INT 10h ;execute the configuration
+		
+		RET
+	MAIN ENDP
+
+CODE ENDS
+END

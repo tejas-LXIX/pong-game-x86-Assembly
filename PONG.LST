@@ -1,0 +1,425 @@
+Microsoft (R) Macro Assembler Version 5.00                  9/1/20 20:01:19
+                                                             Page     1-1
+
+
+ 0000				STACK SEGMENT PARA STACK ;start by creating a s
+				tack segment 
+ 0000  0040[				DB 64 DUP (' ') ;fill the stack with 64
+				 empty spaces.  
+	   20			
+			 ]	
+				
+ 0040				STACK ENDS 
+				 
+ 0000				DATA SEGMENT PARA 'DATA' ;segment where we will
+				 save our variables 
+ 0000  00				TIME_AUX DB 0 
+ 0001  0140				WINDOW_WIDTH DW 140h   ;the width of th
+				e window (320 pixels) 
+ 0003  00C8				WINDOW_HEIGHT DW 0C8h  ;the height of t
+				he window (200 pixels) 
+ 0005  0006				WINDOW_BOUNDS DW 6     ;variable used t
+				o check collisions early 
+ 0007  00A0				BALL_ORIGINAL_X DW 0A0h 
+ 0009  0064				BALL_ORIGINAL_Y DW 64h 
+ 000B  00A0				BALL_X DW 0A0h  ;declaring the ball var
+				iables here (x and y posn's of the ball) 
+ 000D  0064				BALL_Y DW 64h  ; DW	stands for defi
+				ne word. can store 16 bits of info. we use it b
+				ecause down there,we are using 16 bits register
+				s.
+					; DB can only store 8 bits of data. 
+ 000F  0004				BALL_SIZE DW 04h  ;size of the ball. 4 
+				pixels on x(width) and on y(height). so,16 pixe
+				ls in total.	 
+ 0011  0005				BALL_VELOCITY_X DW 05h 
+ 0013  0002				BALL_VELOCITY_Y DW 02h 
+					 
+ 0015  000A				PADDLE_LEFT_X DW 0Ah 
+ 0017  000A				PADDLE_LEFT_Y DW 0Ah 
+					 
+ 0019  0130				PADDLE_RIGHT_X DW 130h 
+ 001B  000A				PADDLE_RIGHT_Y DW 0Ah 
+					 
+ 001D  0005				PADDLE_WIDTH DW 05h 
+ 001F  001F				PADDLE_HEIGHT DW 1Fh 
+ 0021				DATA ENDS 
+				 
+ 0000				CODE SEGMENT PARA 'CODE' 
+					 
+ 0000					MAIN PROC FAR  ;creating our main proce
+				dure(main function jaise) 
+					 
+					ASSUME CS:CODE,DS:DATA,SS:STACK ; to cl
+				early define the segments of our program. 
+					;code segment,data segment,stack segmen
+				t. Assembler assumes that these are called code
+				,data and stack. 
+					; useful for telling the assembler wher
+Microsoft (R) Macro Assembler Version 5.00                  9/1/20 20:01:19
+                                                             Page     1-2
+
+
+				e to get the variables from(where they have bee
+				n defined),rather than using random garbage v
+					 
+ 0000  1E				PUSH DS ;push to the stack the DS segme
+				nt. 
+ 0001  2B C0				SUB AX,AX  ;clean the AX Register by su
+				btracting it with itself 
+ 0003  50				PUSH AX ;push ax to the stack 
+ 0004  B8 ---- R			MOV AX,DATA ;save on the AX Register th
+				e contents of the DATA segment 
+ 0007  8E D8				MOV DS,AX   ;save on the data segment,t
+				he contents of AX. 
+ 0009  58				POP AX   ;release the top item from the
+				 stack to the register 
+ 000A  58				POP AX    
+					 
+ 000B  E8 0110 R				CALL CLEAR_SCREEN 
+						 
+ 000E						CHECK_TIME: 
+ 000E  B4 2C						MOV AH,2Ch ; set the co
+				nfiguration to get the system time. 2Ch is the 
+				function code on AH to get the system time. 
+ 0010  CD 21						INT 21h  ;we will use t
+				he interruption 21h. CH = hour CL = minute DH =
+				 second DL = 1/100 seconds 
+ 0012  3A 16 0000 R					CMP DL,TIME_AUX ; check
+				 if the current time is equal to the previous o
+				ne 
+ 0016  74 F6						JE CHECK_TIME  ;JE stan
+				ds for "Jump if condition is met". If DL and TI
+				ME_AUX are the same,check again. If not the sam
+				e,then draw 
+							 
+ 0018  88 16 0000 R					MOV TIME_AUX,DL ;Update
+				 the value of time_aux with the new value of dl
+				. basically,update the time. 
+							 
+ 001C  E8 0110 R					CALL CLEAR_SCREEN 
+ 001F  E8 002B R					CALL MOVE_BALL 
+ 0022  E8 0084 R					CALL DRAW_BALL 
+							 
+ 0025  E8 00B3 R					CALL DRAW_PADDLES 
+							 
+ 0028  EB E4						JMP CHECK_TIME 
+						 
+ 002A  CB					RET 
+ 002B					MAIN ENDP 
+				 
+ 002B					MOVE_BALL PROC NEAR 
+						 
+ 002B  A1 0011 R				MOV AX,BALL_VELOCITY_X     
+ 002E  01 06 000B R				ADD BALL_X,AX             ;move
+				 the ball horizontally 
+						 
+Microsoft (R) Macro Assembler Version 5.00                  9/1/20 20:01:19
+                                                             Page     1-3
+
+
+ 0032  A1 0005 R				MOV AX,WINDOW_BOUNDS 
+ 0035  39 06 000B R				CMP BALL_X,AX                  
+				        
+ 0039  7C 33					JL RESET_POSITION         ;BALL
+				_X < 0 + WINDOW_BOUNDS (Y -> collided) 
+						 
+ 003B  A1 0001 R				MOV AX,WINDOW_WIDTH 
+ 003E  2B 06 000F R				SUB AX,BALL_SIZE 
+ 0042  2B 06 0005 R				SUB AX,WINDOW_BOUNDS 
+ 0046  39 06 000B R				CMP BALL_X,AX	          ;BALL
+				_X > WINDOW_WIDTH - BALL_SIZE  - WINDOW_BOUNDS 
+				(Y -> collided) 
+ 004A  7F 22					JG RESET_POSITION 
+						 
+						 
+ 004C  A1 0013 R				MOV AX,BALL_VELOCITY_Y 
+ 004F  01 06 000D R				ADD BALL_Y,AX             ;move
+				 the ball vertically 
+						 
+ 0053  A1 0005 R				MOV AX,WINDOW_BOUNDS 
+ 0056  39 06 000D R				CMP BALL_Y,AX   ;BALL_Y < 0 + W
+				INDOW_BOUNDS (Y -> collided) 
+ 005A  7C 16					JL NEG_VELOCITY_Y              
+				             
+						 
+ 005C  A1 0003 R				MOV AX,WINDOW_HEIGHT	 
+ 005F  2B 06 000F R				SUB AX,BALL_SIZE 
+ 0063  2B 06 0005 R				SUB AX,WINDOW_BOUNDS 
+ 0067  39 06 000D R				CMP BALL_Y,AX 
+ 006B  7F 05					JG NEG_VELOCITY_Y	
+					  ;BALL_Y > WINDOW_HEIGHT - BALL_SIZE -
+				 WINDOW_BOUNDS (Y -> collided) 
+						 
+ 006D  C3					RET 
+						 
+ 006E						RESET_POSITION: 
+ 006E  E8 0077 R					CALL RESET_BALL_POSITIO
+				N 
+ 0071  C3						RET 
+							 
+ 0072						NEG_VELOCITY_Y: 
+ 0072  F7 1E 0013 R					NEG BALL_VELOCITY_Y   ;
+				BALL_VELOCITY_Y = - BALL_VELOCITY_Y 
+ 0076  C3						RET 
+						 
+ 0077					MOVE_BALL ENDP 
+					 
+ 0077					RESET_BALL_POSITION PROC NEAR 
+ 0077  A1 0007 R				MOV AX,BALL_ORIGINAL_X 
+ 007A  A3 000B R				MOV BALL_X,AX 
+						 
+ 007D  A1 0009 R				MOV AX,BALL_ORIGINAL_Y 
+ 0080  A3 000D R				MOV BALL_Y,AX 
+						 
+Microsoft (R) Macro Assembler Version 5.00                  9/1/20 20:01:19
+                                                             Page     1-4
+
+
+ 0083  C3					RET 
+ 0084					RESET_BALL_POSITION ENDP 
+					 
+ 0084					DRAW_BALL PROC NEAR  ;to define a noew 
+				procedure that belongs to the same code segment
+				. the main procedure can call this drawball p
+						 
+ 0084  8B 0E 000B R				MOV CX,BALL_X ;set the initial 
+				column (X position) of the pixel to 10 
+ 0088  8B 16 000D R				MOV DX,BALL_Y ;set initial y (r
+				ow position) position to 10. 
+						;we draw one pixel in one line 
+				till we reach the width of 4. then do the same 
+				for each line till we reach 4 again. so,we prin
+				t 16 
+ 008C						DRAW_BALL_HORIZONTAL: 
+ 008C  B4 0C						MOV AH,0Ch ; set the co
+				nfiguration to writing a pixel 
+ 008E  B0 0F						MOV AL,0Fh ; chooose wh
+				ite colour for the pixel 
+ 0090  B7 00						MOV BH,00h ; set the pa
+				ge number to zero 
+ 0092  CD 10						INT 10h ;execute the co
+				nfiguration 
+							 
+ 0094  41						INC CX  ;CX=CX+1 increm
+				enting the column by 1.			 
+									;CX - B
+				ALL_X > BALL_SIZE (We check this condition. If 
+				this occurs,means we have reached the width of 
+				the ball,so we reset and g
+ 0095  8B C1						MOV AX,CX ;Using an aux
+				iliary register AX so that we dont lose the cur
+				rent values. 
+ 0097  2B 06 000B R					SUB AX,BALL_X ;This dif
+				ference increases with each iteration. This Dif
+				f is stored in AX. 
+ 009B  3B 06 000F R					CMP AX,BALL_SIZE ;compa
+				ring the two values 
+ 009F  7E EB						JNG DRAW_BALL_HORIZONTA
+				L ;JUMP,if NOT GREATER. if AX is not greater th
+				an ballsize,then loop this again. 
+							;this basically draws t
+				he columns. 
+							 
+							;if it reaches the belo
+				w lines,means that AX became greater than ball_
+				size. so,now we have to go to the next line and
+				 do this aga
+ 00A1  8B 0E 000B R					MOV CX,BALL_X ;resettin
+				g the column value to initial x position of the
+				 ball. CX register goes back to the initial col
+				umn 
+ 00A5  42						INC DX ;move to the nex
+Microsoft (R) Macro Assembler Version 5.00                  9/1/20 20:01:19
+                                                             Page     1-5
+
+
+				t line 
+									;DX - B
+				ALL_Y > BALL_SIZE(to check if we have reached t
+				he final line).If true,then we exit this proced
+				ure. otherwise,we move to 
+ 00A6  8B C2						MOV AX,DX 
+ 00A8  2B 06 000D R					SUB AX,BALL_Y 
+ 00AC  3B 06 000F R					CMP AX,BALL_SIZE 
+ 00B0  7E DA			 			JNG DRAW_BALL_HORIZONTA
+				L 
+									 
+							 
+ 00B2  C3					RET   ;to exit this procedure 
+ 00B3					DRAW_BALL ENDP  ;denotes the end of thi
+				s procedure 
+					 
+ 00B3					DRAW_PADDLES PROC NEAR 
+ 00B3  8B 0E 0015 R				MOV CX,PADDLE_LEFT_X 
+ 00B7  8B 16 0017 R				MOV DX,PADDLE_LEFT_Y 
+						 
+ 00BB						DRAW_PADDLE_LEFT_HORIZONTAL: 
+ 00BB  B4 0C						MOV AH,0Ch ; set the co
+				nfiguration to writing a pixel 
+ 00BD  B0 0F						MOV AL,0Fh ; chooose wh
+				ite colour for the pixel 
+ 00BF  B7 00						MOV BH,00h ; set the pa
+				ge number to zero 
+ 00C1  CD 10						INT 10h ;execute the co
+				nfiguration 
+							 
+ 00C3  41						INC CX 
+ 00C4  8B C1						MOV AX,CX 
+ 00C6  2B 06 0015 R					SUB AX,PADDLE_LEFT_X. 
+pong.asm(161): error A2027: Operand expected
+ 00CA  3B 06 001D R					CMP AX,PADDLE_WIDTH 
+ 00CE  7E EB						JNG DRAW_PADDLE_LEFT_HO
+				RIZONTAL 
+ 00D0  8B 0E 0015 R					MOV CX,PADDLE_LEFT_X 
+ 00D4  42						INC DX 
+ 00D5  8B C2						MOV AX,DX 
+ 00D7  2B 06 0017 R					SUB AX,PADDLE_LEFT_Y 
+ 00DB  3B 06 001F R					CMP AX,PADDLE_HEIGHT 
+ 00DF  7E DA			 			JNG DRAW_PADDLE_LEFT_HO
+				RIZONTAL 
+							 
+ 00E1  8B 0E 0019 R				MOV CX,PADDLE_RIGHT_X ;set the 
+				initial column (X) 
+ 00E5  8B 16 001B R				MOV DX,PADDLE_RIGHT_Y ;set the 
+				initial line (Y) 
+						 
+ 00E9						DRAW_PADDLE_RIGHT_HORIZONTAL: 
+ 00E9  B4 0C						MOV AH,0Ch ;set the con
+				figuration to writing a pixel 
+ 00EB  B0 0F						MOV AL,0Fh ;choose whit
+Microsoft (R) Macro Assembler Version 5.00                  9/1/20 20:01:19
+                                                             Page     1-6
+
+
+				e as color 
+ 00ED  B7 00						MOV BH,00h ;set the pag
+				e number  
+ 00EF  CD 10						INT 10h    ;execute the
+				 configuration 
+							 
+ 00F1  41						INC CX     ;CX = CX + 1
+				 
+ 00F2  8B C1						MOV AX,CX          ;CX 
+				- PADDLE_RIGHT_X > PADDLE_WIDTH (Y -> We go to 
+				the next line,N -> We continue to the next colu
+				mn 
+ 00F4  2B 06 0019 R					SUB AX,PADDLE_RIGHT_X 
+ 00F8  3B 06 001D R					CMP AX,PADDLE_WIDTH 
+ 00FC  7E EB						JNG DRAW_PADDLE_RIGHT_H
+				ORIZONTAL 
+							 
+ 00FE  8B 0E 0019 R					MOV CX,PADDLE_RIGHT_X ;
+				the CX register goes back to the initial column
+				 
+ 0102  42						INC DX        ;we advan
+				ce one line 
+							 
+ 0103  8B C2						MOV AX,DX              
+				;DX - PADDLE_RIGHT_Y > PADDLE_HEIGHT (Y -> we e
+				xit this procedure,N -> we continue to the next
+				 line 
+ 0105  2B 06 001B R					SUB AX,PADDLE_RIGHT_Y 
+ 0109  3B 06 001F R					CMP AX,PADDLE_HEIGHT 
+ 010D  7E DA						JNG DRAW_PADDLE_RIGHT_H
+				ORIZONTAL 
+ 010F  C3					RET 
+ 0110					DRAW_PADDLES ENDP 
+					 
+ 0110					CLEAR_SCREEN PROC NEAR 
+ 0110  B4 00						MOV AH,00h ;set the con
+				figuration to video mode 
+ 0112  B0 13						MOV AL,13h  ;choose the
+				 video mode. set it to 13h(is a part of provide
+				s 256 color graphics) 
+ 0114  CD 10						INT 10h ; execute the c
+				onfiguration 
+							 
+ 0116  B4 0B						MOV AH,0Bh ;set the con
+				figuration 
+ 0118  B7 00						MOV BH,00h ;to the back
+				ground color 
+ 011A  B3 00						MOV BL,00h ; choose bla
+				ck as background. 00h is the colour code for bl
+				ack 
+ 011C  CD 10						INT 10h ; execute the c
+				onfiguration 
+							 
+ 011E  C3						RET 
+Microsoft (R) Macro Assembler Version 5.00                  9/1/20 20:01:19
+                                                             Page     1-7
+
+
+ 011F					CLEAR_SCREEN ENDP 
+					 
+ 011F				CODE ENDS 
+				END 
+Microsoft (R) Macro Assembler Version 5.00                  9/1/20 20:01:19
+                                                             Symbols-1
+
+
+Segments and Groups:
+
+                N a m e         	Length	 Align	Combine Class
+
+CODE . . . . . . . . . . . . . .  	011F	PARA	NONE	'CODE'
+DATA . . . . . . . . . . . . . .  	0021	PARA	NONE	'DATA'
+STACK  . . . . . . . . . . . . .  	0040	PARA	STACK	
+
+Symbols:            
+
+                N a m e         	Type	 Value	 Attr
+
+BALL_ORIGINAL_X  . . . . . . . .  	L WORD	0007	DATA
+BALL_ORIGINAL_Y  . . . . . . . .  	L WORD	0009	DATA
+BALL_SIZE  . . . . . . . . . . .  	L WORD	000F	DATA
+BALL_VELOCITY_X  . . . . . . . .  	L WORD	0011	DATA
+BALL_VELOCITY_Y  . . . . . . . .  	L WORD	0013	DATA
+BALL_X . . . . . . . . . . . . .  	L WORD	000B	DATA
+BALL_Y . . . . . . . . . . . . .  	L WORD	000D	DATA
+
+CHECK_TIME . . . . . . . . . . .  	L NEAR	000E	CODE
+CLEAR_SCREEN . . . . . . . . . .  	N PROC	0110	CODE	Length = 000F
+
+DRAW_BALL  . . . . . . . . . . .  	N PROC	0084	CODE	Length = 002F
+DRAW_BALL_HORIZONTAL . . . . . .  	L NEAR	008C	CODE
+DRAW_PADDLES . . . . . . . . . .  	N PROC	00B3	CODE	Length = 005D
+DRAW_PADDLE_LEFT_HORIZONTAL  . .  	L NEAR	00BB	CODE
+DRAW_PADDLE_RIGHT_HORIZONTAL . .  	L NEAR	00E9	CODE
+
+MAIN . . . . . . . . . . . . . .  	F PROC	0000	CODE	Length = 002B
+MOVE_BALL  . . . . . . . . . . .  	N PROC	002B	CODE	Length = 004C
+
+NEG_VELOCITY_Y . . . . . . . . .  	L NEAR	0072	CODE
+
+PADDLE_HEIGHT  . . . . . . . . .  	L WORD	001F	DATA
+PADDLE_LEFT_X  . . . . . . . . .  	L WORD	0015	DATA
+PADDLE_LEFT_Y  . . . . . . . . .  	L WORD	0017	DATA
+PADDLE_RIGHT_X . . . . . . . . .  	L WORD	0019	DATA
+PADDLE_RIGHT_Y . . . . . . . . .  	L WORD	001B	DATA
+PADDLE_WIDTH . . . . . . . . . .  	L WORD	001D	DATA
+
+RESET_BALL_POSITION  . . . . . .  	N PROC	0077	CODE	Length = 000D
+RESET_POSITION . . . . . . . . .  	L NEAR	006E	CODE
+
+TIME_AUX . . . . . . . . . . . .  	L BYTE	0000	DATA
+
+WINDOW_BOUNDS  . . . . . . . . .  	L WORD	0005	DATA
+WINDOW_HEIGHT  . . . . . . . . .  	L WORD	0003	DATA
+WINDOW_WIDTH . . . . . . . . . .  	L WORD	0001	DATA
+
+@FILENAME  . . . . . . . . . . .  	TEXT  pong		
+
+Microsoft (R) Macro Assembler Version 5.00                  9/1/20 20:01:19
+                                                             Symbols-2
+
+
+
+    210 Source  Lines
+    210 Total   Lines
+     34 Symbols
+
+  51174 + 448986 Bytes symbol space free
+
+      0 Warning Errors
+      1 Severe  Errors
